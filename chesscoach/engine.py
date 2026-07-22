@@ -148,27 +148,44 @@ class Engines:
         }
 
     def demo_line(self, board, max_plies=6) -> list[dict]:
-        """A short continuation from `board`, for the practice-board lesson feature. Moves
-        come straight from Stockfish's own principal variation, so legality is guaranteed —
-        the LLM narrates this, it never invents it. A depth (not time) limit — short time
-        budgets on this host sometimes report a PV of just 1-2 plies before cutting off.
+        """A short continuation from `board`, for the practice-board lesson feature.
+
+        Re-analyses FRESH after every single ply and only ever trusts the first move of
+        each search — never a whole multi-ply PV from one shallow pass. Only a search's
+        immediate best move is reliable; plies 2+ of that same PV are just "what the engine
+        expected while still searching shallowly," never independently verified, and can
+        contain moves that don't hold up (confirmed bug: a demo showed a bishop given up
+        for a pawn several plies deep — a shallow-PV artifact, not real best play). Each
+        ply here gets its own full-depth look at the position as it actually stands,
+        exactly like the engine would if it were really playing on. Costs ~6 short
+        searches instead of 1, but this only runs once per accepted lesson.
 
         Each step also reports the material balance right after that move (White pawns minus
-        Black pawns) — a free, objective "is the point already obvious?" signal. A blunder
-        that just hangs a piece shows the full swing after one ply; the coach uses this to
-        decide how many plies actually need to play out, instead of always running the line
-        to its full length regardless of whether the point was already made."""
-        info = self.analyst.analyse(board, chess.engine.Limit(depth=12))
-        info = info[0] if isinstance(info, list) else info
-        pv = (info.get("pv") or [])[:max_plies]
+        Black pawns) — a free, objective "is the point already obvious?" signal. The coach
+        uses it to decide how many of these plies to actually show. We also use it here, at
+        COMPUTE time, to stop early once a material swing has held through a full reply (one
+        capture plus its recapture) — a simple one-move hang doesn't need 6 separate depth-18
+        searches when the point is already unmistakable after 2-3; that's pure latency with
+        no payoff, since the coach would just discard the extra plies anyway."""
         steps = []
         b = board.copy(stack=False)
-        for mv in pv:
+        start_diff = material(b, chess.WHITE) - material(b, chess.BLACK)
+        swing_at = None
+        for i in range(max_plies):
+            if b.is_game_over():
+                break
+            info = self.analyst.analyse(b, chess.engine.Limit(depth=16))
+            info = info[0] if isinstance(info, list) else info
+            pv = info.get("pv") or []
+            if not pv:
+                break
+            mv = pv[0]  # only the first move of a fresh search — never trust deeper into it
             mover_white = b.turn
             san = b.san(mv)
             is_capture = b.is_capture(mv)
             frm, to = chess.square_name(mv.from_square), chess.square_name(mv.to_square)
             b.push(mv)
+            cur_diff = material(b, chess.WHITE) - material(b, chess.BLACK)
             steps.append(
                 {
                     "san": san,
@@ -177,9 +194,13 @@ class Engines:
                     "lastMove": [frm, to],
                     "check": b.is_check(),
                     "capture": is_capture,
-                    "material_diff": material(b, chess.WHITE) - material(b, chess.BLACK),
+                    "material_diff": cur_diff,
                 }
             )
+            if swing_at is None and abs(cur_diff - start_diff) >= 1:
+                swing_at = i
+            elif swing_at is not None and i - swing_at >= 2:
+                break  # swing has survived a full reply — the point is clearly made
         return steps
 
     def close(self):
