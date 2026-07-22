@@ -1,0 +1,35 @@
+# --- Secrets: NEVER commit ---
+.env
+.env.*
+!.env.example
+
+# --- Player data (private): game history, ratings, coach's notebook, spend log ---
+data/
+*.db
+*.sqlite3
+*.log
+
+# --- Stockfish binary (downloaded locally, not vendored — see README) ---
+engine/stockfish*
+*.exe
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# --- Node / JS tooling ---
+node_modules/
+npm-debug.log*
+
+# --- Editor / tooling ---
+.claude/
+.vscode/
+.idea/
+*.swp
+.DS_Store

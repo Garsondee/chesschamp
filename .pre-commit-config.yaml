@@ -1,0 +1,41 @@
+repos:
+  # Generic hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^static/vendor/
+      - id: end-of-file-fixer
+        exclude: ^static/vendor/
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=2000]
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        exclude: ^static/vendor/
+
+  # Python: lint + format (ruff manages its own isolated env, so this is a proper mirror hook)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.22
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # JS/CSS/HTML: use the project's own local eslint/prettier (via npx) rather than
+  # pre-commit's isolated node-env mirrors — avoids a second, possibly-drifted copy of
+  # the same tool with its own version/config resolution.
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint (static/*.js)
+        entry: npx eslint
+        language: system
+        files: ^static/.*\.js$
+        exclude: ^static/vendor/
+      - id: prettier
+        name: prettier --check
+        entry: npx prettier --check
+        language: system
+        files: \.(js|css|html|md)$
+        exclude: ^static/vendor/

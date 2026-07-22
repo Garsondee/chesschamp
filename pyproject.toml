@@ -1,0 +1,23 @@
+# Tooling configuration for ChessChamp (linting, formatting, tests).
+# Runtime dependencies live in requirements.txt; dev tools in requirements-dev.txt.
+# This file intentionally has no [project]/[build-system] table — ChessChamp is run as an
+# app (uvicorn / scripts), not installed as a distributable package.
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["static/vendor", ".venv"]
+
+[tool.ruff.lint]
+# A deliberately strong-but-practical set:
+#   E/W  pycodestyle   F  pyflakes      I  isort (import order)
+#   UP   pyupgrade     B  bugbear       C4 comprehensions   SIM  simplify
+select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]

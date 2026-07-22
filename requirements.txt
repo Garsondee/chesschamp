@@ -1,0 +1,6 @@
+python-chess>=1.11
+httpx>=0.27
+python-dotenv>=1.0
+# Web layer (Phase 2+); harmless to install now
+fastapi>=0.110
+uvicorn[standard]>=0.29

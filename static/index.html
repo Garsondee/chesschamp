@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChessChamp</title>
+    <link rel="stylesheet" href="/static/vendor/chessground.base.css" />
+    <link rel="stylesheet" href="/static/vendor/chessground.brown.css" />
+    <link rel="stylesheet" href="/static/vendor/chessground.cburnett.css" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>♞ ChessChamp</h1>
+        <div class="sub">
+          opponent <b id="elo">…</b> · <span id="model">…</span>
+          <span id="status"></span>
+        </div>
+      </header>
+
+      <main>
+        <section class="board-area">
+          <div class="evalbar" title="Engine evaluation (White's view)">
+            <div class="evalbar-fill" id="evalFill"></div>
+            <span class="eval-num" id="evalNum">0.0</span>
+          </div>
+          <div class="board-col">
+            <div id="board" class="cg-wrap"></div>
+            <div id="promo" class="promo hidden"></div>
+            <div class="captured-row">
+              <div class="captured" id="capTop"></div>
+              <div class="captured" id="capBottom"></div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel">
+          <div class="controls">
+            <div class="row newgame">
+              <span class="label">New game</span>
+              <button data-color="white" class="chip">White</button>
+              <button data-color="black" class="chip">Black</button>
+              <button data-color="random" class="chip">Random</button>
+            </div>
+            <div class="row actions">
+              <button id="takeback">↩ Takeback</button>
+              <button id="hint">💡 Hint</button>
+              <button id="flip">⇅ Flip</button>
+              <button id="sound" title="Sound on">🔊</button>
+              <button id="resign" class="danger">⚑ Resign</button>
+            </div>
+            <div class="hint-line">
+              Left-drag to move · <b>right-drag to ask the coach “what if?”</b>
+            </div>
+          </div>
+
+          <div id="chat" class="chat"></div>
+
+          <div class="moves" id="moves"></div>
+
+          <footer class="meter">
+            <span>reads you at <b id="yourElo">…</b><i id="calib" class="calib"></i></span>
+            <span><b id="games">0</b> games remembered</span>
+            <span><b id="spend">$0.0000</b> session</span>
+            <span><b id="today">$0.0000</b> today</span>
+            <span><b id="tb">0</b> takebacks</span>
+          </footer>
+        </aside>
+      </main>
+
+      <div id="lessonOfferModal" class="modal-backdrop hidden">
+        <div class="modal-card">
+          <span class="lesson-badge">📖 Diversion</span>
+          <p id="lessonTeaser"></p>
+          <div class="modal-actions">
+            <button id="lessonYes" class="primary">Show me</button>
+            <button id="lessonNo">No thanks</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="lessonOverlay" class="lesson-overlay hidden">
+        <div class="lesson-card">
+          <div class="lesson-header">
+            <span class="lesson-badge">📖 Demonstration</span>
+            <span class="lesson-progress" id="lessonProgress"></span>
+          </div>
+          <div id="lessonBoard" class="cg-wrap lesson-board"></div>
+          <div class="lesson-narration" id="lessonNarration"></div>
+          <div class="lesson-controls">
+            <button id="lessonSkip">⏭ Skip to end</button>
+            <button id="lessonExit">✕ Exit</button>
+            <button id="lessonContinue" class="hidden primary">Continue game →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>

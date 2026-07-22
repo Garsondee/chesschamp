@@ -1,0 +1,528 @@
+:root {
+  --bg: #14161a;
+  --panel: #1d2026;
+  --panel-2: #262a32;
+  --ink: #e7e9ee;
+  --muted: #98a0ad;
+  --accent: #e0a458; /* warm gold — the coach */
+  --accent-2: #6ea8fe;
+  --good: #7bc86c;
+  --ok: #a9c471;
+  --inacc: #e6c34a;
+  --mistake: #e08b3c;
+  --blunder: #e05c5c;
+  --line: #333844;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    15px/1.5 system-ui,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+}
+
+#app {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 18px 20px 28px;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+header h1 {
+  font-size: 22px;
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+header .sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+header .sub b {
+  color: var(--ink);
+  font-weight: 600;
+}
+#status {
+  margin-left: 10px;
+  color: var(--accent);
+  font-style: italic;
+}
+
+main {
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+}
+@media (max-width: 860px) {
+  main {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* board + eval bar */
+.board-area {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  position: relative;
+}
+.board-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#board {
+  width: min(70vh, 560px);
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* captured pieces + material diff */
+.captured-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 20px;
+  min-height: 24px;
+}
+.captured {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  min-height: 22px;
+  color: var(--muted);
+}
+.captured .cap-piece {
+  line-height: 1;
+}
+.captured .diff {
+  margin-left: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--good);
+  align-self: center;
+}
+.captured .diff.neg {
+  color: var(--mistake);
+}
+
+.evalbar {
+  position: relative;
+  width: 16px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #0f1013;
+}
+.evalbar-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 50%;
+  background: #eef1f6;
+  transition: height 0.35s ease;
+}
+.eval-num {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  transform: translateX(-50%) rotate(90deg);
+  transform-origin: center;
+  font-size: 10px;
+  color: #8891a0;
+  white-space: nowrap;
+}
+
+/* panel */
+.panel {
+  flex: 1;
+  min-width: 300px;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hint-line {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 2px 2px 0;
+}
+.hint-line b {
+  color: var(--ink);
+  font-weight: 500;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.row .label {
+  color: var(--muted);
+  font-size: 13px;
+  margin-right: 2px;
+}
+button {
+  background: var(--panel-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 7px 11px;
+  font-size: 13px;
+  cursor: pointer;
+}
+button:hover {
+  border-color: var(--accent);
+}
+button.chip {
+  padding: 6px 12px;
+}
+button.danger:hover {
+  border-color: var(--blunder);
+  color: #ffb4b4;
+}
+
+/* chat */
+.chat {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.msg {
+  max-width: 92%;
+  padding: 8px 11px;
+  border-radius: 10px;
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+.msg.coach {
+  align-self: flex-start;
+  background: #2a2620;
+  border: 1px solid #4a3f2c;
+  border-left: 3px solid var(--accent);
+}
+.msg.coach b {
+  color: var(--accent);
+}
+.msg.you {
+  align-self: flex-end;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+.msg.info {
+  align-self: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  background: none;
+  padding: 2px;
+}
+.msg.hint {
+  align-self: center;
+  background: #1e2733;
+  border: 1px solid #2f4a63;
+  color: var(--accent-2);
+}
+.msg.rating {
+  align-self: center;
+  background: #20261c;
+  border: 1px solid #45502e;
+  color: #d3e3a6;
+  font-size: 13px;
+  font-weight: 600;
+}
+.msg.propose {
+  align-self: flex-start;
+  background: #1b2430;
+  border: 1px solid #33506e;
+  border-left: 3px solid var(--accent-2);
+  color: #d7e3f2;
+}
+.msg.propose b {
+  color: var(--accent-2);
+}
+.grade {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.g-best,
+.g-good {
+  color: var(--good);
+}
+.g-excellent {
+  color: var(--good);
+}
+.g-inaccuracy {
+  color: var(--inacc);
+}
+.g-mistake {
+  color: var(--mistake);
+}
+.g-blunder {
+  color: var(--blunder);
+}
+
+/* moves */
+.moves {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-height: 40px;
+  max-height: 130px;
+  overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 13.5px;
+  line-height: 1.9;
+}
+.moves .num {
+  color: var(--muted);
+  margin-right: 4px;
+}
+.moves .mv {
+  margin-right: 10px;
+  cursor: default;
+}
+.moves .mv.you.g-blunder {
+  color: var(--blunder);
+}
+.moves .mv.you.g-mistake {
+  color: var(--mistake);
+}
+.moves .mv.you.g-inaccuracy {
+  color: var(--inacc);
+}
+
+/* meter */
+.meter {
+  display: flex;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 12.5px;
+  flex-wrap: wrap;
+}
+.meter b {
+  color: var(--ink);
+}
+.calib {
+  color: var(--accent);
+  font-style: normal;
+}
+
+/* promotion picker */
+.promo {
+  position: absolute;
+  z-index: 20;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  gap: 4px;
+}
+.promo.hidden,
+.hidden {
+  display: none !important;
+}
+.promo button {
+  width: 46px;
+  height: 46px;
+  font-size: 26px;
+  line-height: 1;
+  padding: 0;
+}
+
+/* winner banner */
+.banner {
+  align-self: center;
+  text-align: center;
+  color: var(--accent);
+  font-weight: 600;
+  background: #2a2620;
+  border: 1px solid #4a3f2c;
+  border-radius: 10px;
+  padding: 8px 14px;
+}
+
+/* --- practice-board demonstrations (Phase 5) --- */
+
+/* The real UI "goes ghostly" while a diversion plays. Selector targets header/main only
+   (direct children of #app) so the modal/overlay siblings below are never affected. */
+header,
+main {
+  transition:
+    opacity 0.5s ease,
+    filter 0.5s ease;
+}
+#app.diverting > header,
+#app.diverting > main {
+  opacity: 0.32;
+  filter: grayscale(0.7) blur(1.5px);
+  pointer-events: none;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modal-fade 0.25s ease;
+}
+.modal-card {
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 20px 24px;
+  width: min(90vw, 380px);
+  text-align: center;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.modal-card p {
+  font-size: 15px;
+  margin: 0;
+  color: var(--ink);
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.modal-actions button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1400;
+  font-weight: 700;
+}
+
+.lesson-badge {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.2px;
+}
+
+.lesson-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: lesson-in 0.35s ease;
+}
+.lesson-card {
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  padding: 18px;
+  width: min(94vw, 600px);
+  box-shadow: 0 20px 64px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.lesson-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.lesson-progress {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+/* Same sizing rule as the real board (#board) — same on-screen size, per user request. */
+.lesson-board {
+  width: min(70vh, 560px);
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+.lesson-narration,
+.lesson-controls {
+  width: 100%;
+}
+.lesson-narration {
+  min-height: 48px;
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: #20242c;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.lesson-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.lesson-controls button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1400;
+  font-weight: 700;
+}
+
+@keyframes modal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* No transform here on purpose: Chessground measures its container's pixel box at
+   construction time, and a mid-flight transform:scale() on an ancestor would make that
+   measurement land on a shrunk frame, baking in an undersized board (confirmed: ~94% size,
+   matching the .95 scale start point). Fade only — sizing stays exact throughout. */
+@keyframes lesson-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

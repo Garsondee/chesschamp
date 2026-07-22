@@ -1,0 +1,8 @@
+# Normalize line endings to LF in the repo regardless of a contributor's local git config,
+# except where a format specifically needs CRLF (Windows .bat) or vendored files that
+# should be left exactly as upstream ships them.
+* text=auto eol=lf
+
+*.bat text eol=crlf
+
+static/vendor/** -text

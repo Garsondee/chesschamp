@@ -1,0 +1,7 @@
+# Third-party, vendored as-is — not ours to reformat
+static/vendor/
+
+# Generated / environment
+.venv/
+node_modules/
+data/
