@@ -50,8 +50,10 @@ and architecture.
   patterns (knight fork, back-rank mate) when those teach the idea more starkly. The coach
   picks how many moves to actually show — a hung piece is usually a 1-move lesson, not 6; it
   reads the material swing per move and stops as soon as the point lands. One LLM call per
-  accepted lesson (~$0.0015–0.003); a 6-ply cooldown prevents pop-up fatigue. Skip/Exit
-  controls let you bail anytime.
+  accepted lesson (~$0.0015–0.003); a 6-ply cooldown prevents pop-up fatigue. Full manual
+  control over pacing: **⏮ Back / ⏸ Pause / Next ⏭** step through at your own speed (either
+  manual button doubles as a pause), auto-play timing scales with how long the narration
+  actually is (not a flat guess), plus Skip-to-end and Exit to bail anytime.
 
 - ✅ **Threat detection** (Phase 5): a real static-exchange-evaluation (SEE) engine
   (`chesscoach/threats.py`) tells a genuine hanging piece apart from a fair trade — a queen

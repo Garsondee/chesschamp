@@ -376,8 +376,9 @@ function setStatus(t) {
 // ---- practice-board demonstrations ("diversions") ----
 let pendingLessonId = null;
 let activeLesson = null; // the lesson_start payload while playback is running
-let lessonStepIdx = -1;
+let lessonStepIdx = -1; // -1 = intro/start position, 0..steps.length-1 = a step, steps.length = outro
 let lessonTimer = null;
+let lessonPaused = false;
 
 function turnFromFen(fen) {
   return fen.split(' ')[1] === 'w' ? 'white' : 'black';
@@ -395,76 +396,144 @@ function showLessonOffer(m) {
   el('lessonOfferModal').classList.remove('hidden');
 }
 
+// The text at a given frame — used both to display it and to time how long to show it.
+function narrationAt(idx) {
+  if (!activeLesson) return '';
+  const steps = activeLesson.steps;
+  if (idx <= -1) return activeLesson.intro || '';
+  if (idx >= steps.length) return activeLesson.outro || '';
+  return steps[idx].narration || steps[idx].san || '';
+}
+
+// Give the reader enough time for the actual sentence, not a flat guess — a one-word
+// caption and a two-sentence explanation don't deserve the same pause.
+function readingDelayMs(text) {
+  const words = (text || '').trim().split(/\s+/).filter(Boolean).length;
+  return Math.min(7000, Math.max(1400, 450 + words * 220));
+}
+
+// Pure render: put the board/narration/progress/nav-state in sync with lessonStepIdx.
+// No sound, no scheduling — advancing and rendering are separate concerns so manual
+// stepping and auto-play can share this without fighting each other.
+function renderLessonFrame(idx) {
+  if (!activeLesson) return;
+  const steps = activeLesson.steps;
+  if (idx <= -1) {
+    lessonGround.set({
+      fen: activeLesson.startFen,
+      orientation: activeLesson.orientation,
+      turnColor: turnFromFen(activeLesson.startFen),
+      lastMove: undefined,
+      check: undefined,
+    });
+    lessonGround.setAutoShapes(threatShapes(activeLesson.startThreatArrows));
+    el('lessonProgress').textContent = `0 / ${steps.length}`;
+    el('lessonContinue').classList.add('hidden');
+  } else if (idx >= steps.length) {
+    const last = steps[steps.length - 1];
+    if (last) {
+      lessonGround.set({
+        fen: last.fen,
+        turnColor: turnFromFen(last.fen),
+        lastMove: last.lastMove,
+        check: !!last.check,
+      });
+      lessonGround.setAutoShapes(threatShapes(last.threatArrows));
+    }
+    el('lessonProgress').textContent = `${steps.length} / ${steps.length}`;
+    el('lessonContinue').classList.remove('hidden');
+  } else {
+    const step = steps[idx];
+    lessonGround.set({
+      fen: step.fen,
+      turnColor: turnFromFen(step.fen),
+      lastMove: step.lastMove,
+      check: !!step.check,
+    });
+    lessonGround.setAutoShapes(threatShapes(step.threatArrows));
+    el('lessonProgress').textContent = `${idx + 1} / ${steps.length}`;
+    el('lessonContinue').classList.add('hidden');
+  }
+  el('lessonNarration').textContent = narrationAt(idx) || 'Let’s take a look…';
+  el('lessonPrev').disabled = idx <= -1;
+  el('lessonNext').disabled = idx >= steps.length;
+}
+
+function playSoundFor(idx) {
+  if (!activeLesson) return;
+  const steps = activeLesson.steps;
+  if (idx < 0 || idx >= steps.length) return;
+  const step = steps[idx];
+  if (step.san && step.san.includes('+')) sfx('check');
+  else if (step.capture) sfx('capture');
+  else sfx('demo');
+}
+
+function updatePlayPauseButton() {
+  const btn = el('lessonPlayPause');
+  btn.textContent = lessonPaused ? '▶ Play' : '⏸ Pause';
+  btn.title = lessonPaused ? 'Resume' : 'Pause';
+}
+
+function scheduleAutoAdvance() {
+  clearTimeout(lessonTimer);
+  if (lessonPaused || !activeLesson) return;
+  if (lessonStepIdx >= activeLesson.steps.length) return; // already at the end
+  lessonTimer = setTimeout(stepForward, readingDelayMs(narrationAt(lessonStepIdx)));
+}
+
+function stepForward() {
+  if (!activeLesson || lessonStepIdx >= activeLesson.steps.length) return;
+  lessonStepIdx++;
+  renderLessonFrame(lessonStepIdx);
+  playSoundFor(lessonStepIdx);
+  scheduleAutoAdvance();
+}
+
+function stepBackward() {
+  if (!activeLesson || lessonStepIdx <= -1) return;
+  clearTimeout(lessonTimer);
+  lessonPaused = true;
+  updatePlayPauseButton();
+  lessonStepIdx--;
+  renderLessonFrame(lessonStepIdx);
+}
+
+function manualNext() {
+  if (!activeLesson) return;
+  lessonPaused = true;
+  updatePlayPauseButton();
+  stepForward();
+}
+
+function togglePlayPause() {
+  if (!activeLesson) return;
+  lessonPaused = !lessonPaused;
+  updatePlayPauseButton();
+  if (!lessonPaused) scheduleAutoAdvance();
+  else clearTimeout(lessonTimer);
+}
+
 function startLessonPlayback(m) {
   el('lessonOfferModal').classList.add('hidden');
   activeLesson = m;
   lessonStepIdx = -1;
+  lessonPaused = false;
+  updatePlayPauseButton();
   document.getElementById('app').classList.add('diverting');
   el('lessonOverlay').classList.remove('hidden'); // must be visible BEFORE Chessground measures it
-  const lg = ensureLessonGround();
-  lg.set({
-    fen: m.startFen,
-    orientation: m.orientation,
-    turnColor: turnFromFen(m.startFen),
-    lastMove: undefined,
-    check: undefined,
-  });
-  lg.setAutoShapes(threatShapes(m.startThreatArrows));
-  el('lessonNarration').textContent = m.intro || 'Let’s take a look…';
-  el('lessonProgress').textContent = `0 / ${m.steps.length}`;
-  el('lessonContinue').classList.add('hidden');
-  scheduleLessonStep(1300);
-}
-
-function scheduleLessonStep(delay) {
-  clearTimeout(lessonTimer);
-  lessonTimer = setTimeout(advanceLesson, delay);
-}
-
-function advanceLesson() {
-  if (!activeLesson) return;
-  const steps = activeLesson.steps;
-  lessonStepIdx++;
-  if (lessonStepIdx >= steps.length) {
-    el('lessonNarration').textContent = activeLesson.outro || 'Back to the game.';
-    el('lessonProgress').textContent = `${steps.length} / ${steps.length}`;
-    el('lessonContinue').classList.remove('hidden');
-    return;
-  }
-  const step = steps[lessonStepIdx];
-  lessonGround.set({
-    fen: step.fen,
-    turnColor: turnFromFen(step.fen),
-    lastMove: step.lastMove,
-    check: !!step.check,
-  });
-  lessonGround.setAutoShapes(threatShapes(step.threatArrows));
-  if (step.san && step.san.includes('+')) sfx('check');
-  else if (step.capture) sfx('capture');
-  else sfx('demo');
-  el('lessonNarration').textContent = step.narration || step.san;
-  el('lessonProgress').textContent = `${lessonStepIdx + 1} / ${steps.length}`;
-  scheduleLessonStep(1500);
+  ensureLessonGround();
+  renderLessonFrame(-1);
+  scheduleAutoAdvance();
 }
 
 function skipLesson() {
-  clearTimeout(lessonTimer);
   if (!activeLesson) return;
-  const steps = activeLesson.steps;
-  lessonStepIdx = steps.length - 1;
-  const last = steps[steps.length - 1];
-  if (last) {
-    lessonGround.set({
-      fen: last.fen,
-      turnColor: turnFromFen(last.fen),
-      lastMove: last.lastMove,
-      check: !!last.check,
-    });
-    lessonGround.setAutoShapes(threatShapes(last.threatArrows));
-  }
-  el('lessonNarration').textContent = activeLesson.outro || (last ? last.narration : '');
-  el('lessonProgress').textContent = `${steps.length} / ${steps.length}`;
-  el('lessonContinue').classList.remove('hidden');
+  clearTimeout(lessonTimer);
+  lessonPaused = true;
+  updatePlayPauseButton();
+  lessonStepIdx = activeLesson.steps.length;
+  renderLessonFrame(lessonStepIdx);
 }
 
 function endLesson() {
@@ -490,6 +559,9 @@ el('lessonNo').onclick = () => {
 el('lessonContinue').onclick = endLesson;
 el('lessonExit').onclick = endLesson;
 el('lessonSkip').onclick = skipLesson;
+el('lessonPrev').onclick = stepBackward;
+el('lessonNext').onclick = manualNext;
+el('lessonPlayPause').onclick = togglePlayPause;
 
 // ---- controls ----
 document.querySelectorAll('.newgame [data-color]').forEach((b) => {

@@ -659,7 +659,10 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 async def index():
-    return FileResponse(str(STATIC / "index.html"))
+    # No caching on the shell page — it's tiny, changes across dev sessions, and a stale
+    # cached copy silently referencing removed/renamed element ids is a nasty class of bug
+    # (confirmed twice while developing this app) that "no-store" makes impossible.
+    return FileResponse(str(STATIC / "index.html"), headers={"Cache-Control": "no-store"})
 
 
 @app.websocket("/ws")
