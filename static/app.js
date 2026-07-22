@@ -383,6 +383,11 @@ function turnFromFen(fen) {
   return fen.split(' ')[1] === 'w' ? 'white' : 'black';
 }
 
+// [{orig,dest}] from the backend -> chessground's shape format (a red arrow each).
+function threatShapes(arrows) {
+  return (arrows || []).map((a) => ({ orig: a.orig, dest: a.dest, brush: 'red' }));
+}
+
 function showLessonOffer(m) {
   pendingLessonId = m.lessonId;
   el('lessonTeaser').textContent = m.teaser;
@@ -404,6 +409,7 @@ function startLessonPlayback(m) {
     lastMove: undefined,
     check: undefined,
   });
+  lg.setAutoShapes(threatShapes(m.startThreatArrows));
   el('lessonNarration').textContent = m.intro || 'Let’s take a look…';
   el('lessonProgress').textContent = `0 / ${m.steps.length}`;
   el('lessonContinue').classList.add('hidden');
@@ -432,6 +438,7 @@ function advanceLesson() {
     lastMove: step.lastMove,
     check: !!step.check,
   });
+  lessonGround.setAutoShapes(threatShapes(step.threatArrows));
   if (step.san && step.san.includes('+')) sfx('check');
   else if (step.capture) sfx('capture');
   else sfx('demo');
@@ -446,13 +453,15 @@ function skipLesson() {
   const steps = activeLesson.steps;
   lessonStepIdx = steps.length - 1;
   const last = steps[steps.length - 1];
-  if (last)
+  if (last) {
     lessonGround.set({
       fen: last.fen,
       turnColor: turnFromFen(last.fen),
       lastMove: last.lastMove,
       check: !!last.check,
     });
+    lessonGround.setAutoShapes(threatShapes(last.threatArrows));
+  }
   el('lessonNarration').textContent = activeLesson.outro || (last ? last.narration : '');
   el('lessonProgress').textContent = `${steps.length} / ${steps.length}`;
   el('lessonContinue').classList.remove('hidden');
@@ -462,6 +471,7 @@ function endLesson() {
   clearTimeout(lessonTimer);
   document.getElementById('app').classList.remove('diverting');
   el('lessonOverlay').classList.add('hidden');
+  if (lessonGround) lessonGround.setAutoShapes([]);
   const id = activeLesson ? activeLesson.lessonId : null;
   activeLesson = null;
   if (id != null) send({ type: 'lesson_done', lessonId: id });

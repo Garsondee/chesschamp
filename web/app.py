@@ -18,7 +18,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from chesscoach import config, lesson, rating
+from chesscoach import config, lesson, rating, threats
 from chesscoach.coach import Coach
 from chesscoach.engine import Engines
 from chesscoach.memory import Memory
@@ -234,10 +234,16 @@ async def coach_turn(ws, s: GameSession):
                 "position": summary,
                 "moves_so_far": s.san_list(),
                 "human_last_move": (
-                    {"san": s.last_user["san"], "quality": s.last_user["class"]}
+                    {
+                        "san": s.last_user["san"],
+                        "quality": s.last_user["class"],
+                        "fairness": s.last_user.get("fairness", "not_a_capture"),
+                        "new_threats_created": s.last_user.get("new_threats", []),
+                    }
                     if s.last_user
                     else None
                 ),
+                "threats_right_now": threats.threat_summary(b),
                 "taken_back_this_turn": s.takenback_this_round,
                 "player_notes": digest,
             }
@@ -280,12 +286,22 @@ async def handle_move(ws, s: GameSession, data: dict):
 
         board_before = b.copy(stack=False)  # kept only in case a lesson offer follows
         verdict = await asyncio.to_thread(s.engines.classify, b, move)
+        fairness = threats.trade_fairness(
+            b, move
+        )  # was this capture a hang, a fair trade, or a sac?
         san = b.san(move)
         b.push(move)
+        new_threats = threats.new_threats_from_move(board_before, b, s.user_color)
         s.moves.append({"san": san, "by": "you", "cls": verdict["class"]})
         s.eval_white = await asyncio.to_thread(s.engines.eval_white_cp, b)
         s.eval_trend = (s.eval_trend + [s.eval_white])[-8:]
-        s.last_user = {"san": san, "class": verdict["class"], "cp_loss": verdict["cp_loss"]}
+        s.last_user = {
+            "san": san,
+            "class": verdict["class"],
+            "cp_loss": verdict["cp_loss"],
+            "fairness": fairness,
+            "new_threats": new_threats,
+        }
         s.memory.record_move(s.game_id, b.ply(), san, "you", verdict["cp_loss"], verdict["class"])
         await ws.send_json(
             {"type": "feedback", "san": san, "cls": verdict["class"], "cpLoss": verdict["cp_loss"]}
@@ -305,14 +321,26 @@ async def handle_move(ws, s: GameSession, data: dict):
             )
             if eligible:
                 s.last_lesson_ply = b.ply()
-                offer = make_lesson_offer(s, board_before, san, verdict)
+                offer = make_lesson_offer(s, board_before, san, verdict, fairness)
                 await ws.send_json({"type": "lesson_offer", **offer})
             else:
                 await coach_turn(ws, s)
 
 
+def _lesson_kind(verdict_class: str, fairness: str) -> str:
+    """'refutation' means "here's the punishment for a real hang"; 'better_idea' means
+    "here's a stronger continuation". A blunder-tier CAPTURE that was itself a fair trade
+    or won material outright isn't a hang — the material loss elsewhere in the position
+    isn't this move's fault, so it gets the same framing as a plain mistake: show the
+    better idea, not a punishment for something that wasn't actually a blunder. Trading
+    queens and getting recaptured is not "you hung your queen"."""
+    if verdict_class == "blunder" and fairness not in ("fair_trade", "won_material"):
+        return "refutation"
+    return "better_idea"
+
+
 def make_lesson_offer(
-    s: GameSession, board_before: chess.Board, trigger_san: str, verdict: dict
+    s: GameSession, board_before: chess.Board, trigger_san: str, verdict: dict, fairness: str
 ) -> dict:
     """Called right after a mistake/blunder, before the coach's real reply move. Zero LLM
     cost — the teaser is a deterministic canned line, so a declined offer never spends a
@@ -320,7 +348,7 @@ def make_lesson_offer(
     or declined) — see handle_lesson_respond / handle_lesson_done."""
     s.lesson_counter += 1
     lid = s.lesson_counter
-    kind = "refutation" if verdict["class"] == "blunder" else "better_idea"
+    kind = _lesson_kind(verdict["class"], fairness)
     s.pending_lesson = {
         "id": lid,
         "kind": kind,
@@ -328,6 +356,7 @@ def make_lesson_offer(
         "board_after_fen": s.board.fen(),
         "trigger_san": trigger_san,
         "trigger_quality": verdict["class"],
+        "trigger_fairness": fairness,
     }
     return {"lessonId": lid, "teaser": lesson.offer_teaser(kind), "kind": kind}
 
@@ -361,7 +390,11 @@ def _build_lesson_content(s: GameSession, pending: dict) -> dict:
     payload = {
         "kind": pending["kind"],
         "you_are": you_are,
-        "trigger_move": {"san": pending["trigger_san"], "quality": pending["trigger_quality"]},
+        "trigger_move": {
+            "san": pending["trigger_san"],
+            "quality": pending["trigger_quality"],
+            "fairness": pending.get("trigger_fairness", "not_a_capture"),
+        },
         "real_line": {"ply_count": len(real_steps), "moves": real_line_for_llm},
         "patterns": [
             {
@@ -401,6 +434,7 @@ def _build_lesson_content(s: GameSession, pending: dict) -> dict:
     narrations += [""] * (len(chosen_steps) - len(narrations))
     for st, text in zip(chosen_steps, narrations, strict=False):
         st["narration"] = text
+        st["threatArrows"] = _threat_arrows_both_sides(st["fen"])
 
     return {
         "chosen": choice,
@@ -409,7 +443,15 @@ def _build_lesson_content(s: GameSession, pending: dict) -> dict:
         "intro": resp.get("intro") or "",
         "steps": chosen_steps,
         "outro": resp.get("outro") or "",
+        "startThreatArrows": _threat_arrows_both_sides(start_fen),
     }
+
+
+def _threat_arrows_both_sides(fen: str) -> list[dict]:
+    """Red arrows from an attacker to each side's genuinely hanging piece — drawn on the
+    demonstration board so 'this could be taken' is something you SEE, not just read."""
+    board = chess.Board(fen)
+    return threats.threat_arrows(board, chess.WHITE) + threats.threat_arrows(board, chess.BLACK)
 
 
 async def handle_lesson_respond(ws, s: GameSession, data: dict):
@@ -567,6 +609,7 @@ async def handle_propose(ws, s: GameSession, data: dict):
                 "how_you_would_stand": _standing(ev["eval_after_cp"]),
                 "move_quality_vs_alternatives": ev["class"],
                 "line_if_you_play_it": ev["reply_line"],
+                "trade_fairness": threats.trade_fairness(b, move),
                 "player_notes": s.memory.profile_digest(),
             }
             return s.coach.evaluate_proposal(payload), ev

@@ -53,6 +53,13 @@ and architecture.
   accepted lesson (~$0.0015–0.003); a 6-ply cooldown prevents pop-up fatigue. Skip/Exit
   controls let you bail anytime.
 
+- ✅ **Threat detection** (Phase 5): a real static-exchange-evaluation (SEE) engine
+  (`chesscoach/threats.py`) tells a genuine hanging piece apart from a fair trade — a queen
+  captured and immediately recaptured is not a blunder, and the coach's tone (both in-game
+  banter and lesson framing) reflects that correctly. New threats a move creates against the
+  opponent are fed to the coach as context. Practice-board demonstrations draw real red
+  arrows (Chessground's `setAutoShapes`) from an attacker to each hanging piece at every step.
+
 Not yet built: opening-repertoire steering (choosing openings that target your weaknesses)
 and the later "interactive" lesson mode (you pick the next move and it adapts — the current
 mode is auto-play only). Oracle VM deploy is Phase 6 (self-contained; low priority now).
